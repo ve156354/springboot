@@ -124,34 +124,10 @@ under the License.
     -->
     <server>
       <id>maven-snapshots</id>
-      <username>osejenkins</username>
-      <password>Osekant4lk2jenkins</password>
+      <username>xxxxxxxxxxxxx</username>
+      <password>xxxxxxxxxxxxxxxx</password>
     </server>
 
-    <server>
-      <id>maven-snapshots</id>
-      <username>atp1msn</username>
-      <password>gundukeyaJi9okm</password>
-    </server>
-
-     <server>
-      <id>maven-snapshots</id>
-      <username>cc_admin</username>
-      <password>l2e5p7j3s1</password>
-    </server>
-	
-    <server>
-      <id>maven-releases</id>
-      <username>cc_admin</username>
-      <password>l2e5p7j3s1</password>
-    </server>
-
-
-    <server>
-      <id>maven-releases</id>
-      <username>osejenkins</username>
-      <password>Osekant4lk2jenkins</password>
-    </server>
 
   </servers>
 
