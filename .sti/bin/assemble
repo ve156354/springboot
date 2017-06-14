@@ -1,0 +1,138 @@
+#!/bin/bash -e
+#
+# S2I assemble script for the 'springboot-sti' image.
+# The 'assemble' script builds your application source ready to run.
+#
+# For more information refer to the documentation:
+#	https://github.com/openshift/source-to-image/blob/master/docs/builder_image.md
+#
+
+if [ "$1" = "-h" ]; then
+	# If the 'springboot-sti' assemble script is executed with '-h' flag,
+	# print the usage.
+	exec /usr/local/sti/usage
+fi
+
+# # Restore artifacts from the previous build (if they exist).
+# #
+# if [ "$(ls /tmp/artifacts/ 2>/dev/null)" ]; then
+#   echo "---> Restoring build artifacts"
+#   mv /tmp/artifacts/. ./
+# fi
+# 
+# echo "---> Installing application source"
+# cp -Rf /tmp/src/. ./
+# 
+# echo "---> Building application from source"
+# # TODO: Add build steps for your application, eg npm install, bundle install
+
+##############################################################################
+
+# Source code provided to STI is at ${HOME}/source
+HOME=/opt/app-root/src
+LOCAL_SOURCE_DIR=${HOME}/source
+mkdir -p $LOCAL_SOURCE_DIR
+
+DEPLOY_DIR=/opt/openshift
+
+# the subdirectory within LOCAL_SOURCE_DIR from where we should copy build artifacts
+ARTIFACT_DIR=${ARTIFACT_DIR-target}
+
+function copy_artifacts() {
+  if [ -d $LOCAL_SOURCE_DIR/$1 ]; then
+    echo "Copying all JAR artifacts from $LOCAL_SOURCE_DIR/$1 directory into $DEPLOY_DIR for later deployment..."
+    cp -v $LOCAL_SOURCE_DIR/$1/*.jar $DEPLOY_DIR 2> /dev/null
+  fi
+}
+
+# Copy the source for compilation
+cp -ad /tmp/src/* $LOCAL_SOURCE_DIR
+
+# If a pom.xml is present, this is a normal build scenario
+# so run maven.
+
+#echo "Build Env values... $APP_GROUPID"
+
+#echo "Artifact.... $APP_GROUPID:$APP_ARTIFACTID:$APP_VERSION"
+
+if [ ! -z "$APP_GROUPID" ] && [ ! -z "$APP_ARTIFACTID" ] && [ ! -z "$APP_VERSION" ] ; then
+
+	WORKING_DIR=/opt/app-root/src
+	M2_REPO=${WORKING_DIR}/repo
+	mkdir -p $M2_REPO
+
+	DEPLOY_DIR=/opt/openshift
+	echo "Performing Binary build...."
+    echo "Retrieving Application Artifact from NEXUS with maven....$APP_GROUPID:$APP_ARTIFACTID:$APP_VERSION"
+	pushd $WORKING_DIR &> /dev/null
+
+	BUILDER_ARGS="org.apache.maven.plugins:maven-dependency-plugin:2.1:get -Dmaven.repo.local=$M2_REPO -DrepoUrl=http://artmgt01.atpco.org:8081/repository/maven-releases -Dartifact=$APP_GROUPID:$APP_ARTIFACTID:$APP_VERSION:jar "
+
+# Execute the actual build
+	echo "Running - mvn $BUILDER_ARGS"
+	mvn -e $BUILDER_ARGS
+
+	ERR=$?
+	if [ $ERR -ne 0 ]; then
+		echo "Aborting due to error code $ERR from Binary build"
+		exit $ERR
+	fi
+
+	# Copy retrieved artifacts (if any!) from the local M2 cache
+	# to the $DEPLOY_DIR directory for later deployment
+	echo "Copying all JAR artifacts from $LOCAL_SOURCE_DIR/$1 directory into $DEPLOY_DIR for later deployment..."
+	ARTIFACT_PATH=`echo $APP_GROUPID | sed -e 's|\.|/|g'`
+	cp -v $M2_REPO/$ARTIFACT_PATH/$APP_ARTIFACTID/$APP_VERSION/$APP_ARTIFACTID-$APP_VERSION.jar $DEPLOY_DIR/ 
+
+	# Clean up
+	rm -rf $M2_REPO
+
+elif [ -f "$LOCAL_SOURCE_DIR/pom.xml" ]; then
+  
+  echo "Performing STI Build..."
+  
+  echo "Building with maven. $LOCAL_SOURCE_DIR/pom.xml found."
+  pushd $LOCAL_SOURCE_DIR &> /dev/null
+
+  if [ -z "$BUILDER_ARGS" ]; then
+    export BUILDER_ARGS="package -Popenshift -DskipTests -Dcom.redhat.xpaas.repo.redhatga"
+  fi
+
+  echo "Found pom.xml... attempting to build with 'mvn -e ${BUILDER_ARGS}'"
+
+  echo "Maven version:"
+  mvn --version
+
+  # Execute the actual build
+  mvn -e $BUILDER_ARGS
+
+  ERR=$?
+  if [ $ERR -ne 0 ]; then
+    echo "Aborting due to error code $ERR from Maven build"
+    exit $ERR
+  fi
+
+  # Copy built artifacts (if any!) from the target/ directory
+  # to the $DEPLOY_DIR directory for later deployment
+  copy_artifacts target
+
+  # clean up after maven
+  mvn clean
+  if [ -d "$HOME/.m2/repository" ]; then
+    rm -r "$HOME/.m2/repository"
+  fi
+
+  popd &> /dev/null
+
+fi
+
+
+
+# As SpringBoot you should only have 1 fat jar
+if [ $(ls /opt/openshift/*.jar | wc -l) -eq 1 ]; then
+  mv /opt/openshift/*.jar /opt/openshift/app.jar
+  [ ! -f /opt/openshift/app.jar ] && echo "Application could not be properly built." && exit 1 
+  echo "Application jar file is located in /opt/openshift/app.jar"
+else
+  exit 1
+fi
