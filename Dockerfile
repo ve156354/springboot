@@ -14,7 +14,7 @@ LABEL io.k8s.description="Platform for building Spring Boot applications with ma
 RUN rpm -Uvh https://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-9.noarch.rpm && \
         yum install -y --setopt=tsflags=nodocs --enablerepo rhel-7-server-optional-rpms --enablerepo rhel-7-server-rpms wget tar unzip bzip2 which && \
                 
-	( wget http://download.oracle.com/otn/java/jdk/8u45-b14/jdk-8u45-linux-x64.rpm?AuthParam=1497103812_2b8cce304f01aa7bb8781b0f56c23aca -O /tmp/jdk-8-linux-x64.rpm ) && \
+	( wget http://download.oracle.com/otn/java/jdk/8u45-b14/jdk-8u45-linux-x64.rpm?AuthParam=1497399845_3ae6642e6b391544eba68ead5f38c6e8 -O /tmp/jdk-8-linux-x64.rpm ) && \
         yum -y --setopt=tsflags=nodocs install /tmp/jdk-8-linux-x64.rpm  && \
         yum clean all  && \
         rm  /tmp/jdk-8-linux-x64.rpm && \
